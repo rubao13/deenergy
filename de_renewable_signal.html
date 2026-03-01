@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DE Renewable Share Signal (80339)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 20px; }
+    h1 { font-size: 1.4rem; }
+    table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: center; }
+    th { background: #f2f2f2; }
+    .red { background-color: #fdd; }
+    .yellow { background-color: #fffae0; }
+    .green { background-color: #e4f8e4; }
+    #status { margin-top: 10px; font-size: 0.9rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Germany Renewable Share Signal – 80339 (Today, CET)</h1>
+  <div id="status">Loading data…</div>
+  <table id="signal-table">
+    <thead>
+      <tr>
+        <th>Time (CET)</th>
+        <th>Renewable Share (%)</th>
+        <th>Signal</th>
+        <th>Signal Description</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    // Mapping of numeric signal to label and description
+    function mapSignal(value) {
+      switch (value) {
+        case -1:
+          return { label: "Red", description: "Grid congestion", css: "red" };
+        case 0:
+          return { label: "Red", description: "Low renewable share", css: "red" };
+        case 1:
+          return { label: "Yellow", description: "Average renewable share", css: "yellow" };
+        case 2:
+          return { label: "Green", description: "High renewable share", css: "green" };
+        default:
+          return { label: "Unknown", description: "No mapping available", css: "" };
+      }
+    }
+
+    // Format a Date object as HH:MM
+    function formatTime(date) {
+      const hh = String(date.getHours()).padStart(2, "0");
+      const mm = String(date.getMinutes()).padStart(2, "0");
+      return hh + ":" + mm;
+    }
+
+    async function loadData() {
+      const statusEl = document.getElementById("status");
+      const tbody = document.querySelector("#signal-table tbody");
+      tbody.innerHTML = "";
+
+      try {
+        const resp = await fetch("https://api.energy-charts.info/signal?country=de&postal_code=80339");
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+        const data = await resp.json();
+
+        // Expecting something like: { timestamps: [...], share_renewables: [...], signal: [...] }
+        const times = data.timestamps || data.time || [];
+        const shares = data.share_renewables || data.renewable_share || [];
+        const signals = data.signal || data.signals || [];
+
+        if (!times.length || !signals.length) {
+          statusEl.textContent = "Data unavailable now, check again later.";
+          return;
+        }
+
+        // Determine today's date in CET
+        const now = new Date();
+        const todayCET = new Date(
+          now.toLocaleString("en-US", { timeZone: "Europe/Berlin" })
+        );
+        const y = todayCET.getFullYear();
+        const m = todayCET.getMonth();
+        const d = todayCET.getDate();
+
+        // Construct 08:00 and 23:00 bounds in CET
+        const startCET = new Date(Date.UTC(y, m, d, 0, 0));
+        const endCET = new Date(Date.UTC(y, m, d, 0, 0));
+
+        // Adjust bounds to 08:00–23:00 CET
+        startCET.setHours(8);
+        endCET.setHours(23);
+
+        let rowsAdded = 0;
+
+        for (let i = 0; i < times.length; i++) {
+          // Many APIs provide UNIX seconds; adjust if necessary
+          let t = times[i];
+
+          // Try to detect if timestamp is in seconds or milliseconds
+          if (String(t).length === 10) {
+            t = t * 1000;
+          }
+
+          const dt = new Date(t);
+          const dtCET = new Date(
+            dt.toLocaleString("en-US", { timeZone: "Europe/Berlin" })
+          );
+
+          if (dtCET < startCET || dtCET > endCET) {
+            continue;
+          }
+
+          const shareVal = shares[i] != null ? shares[i] : null;
+          const signalVal = signals[i] != null ? signals[i] : null;
+
+          if (signalVal == null || shareVal == null) {
+            continue;
+          }
+
+          const mapping = mapSignal(signalVal);
+          const tr = document.createElement("tr");
+          if (mapping.css) {
+            tr.classList.add(mapping.css);
+          }
+
+          const tdTime = document.createElement("td");
+          tdTime.textContent = formatTime(dtCET);
+
+          const tdShare = document.createElement("td");
+          tdShare.textContent = shareVal.toFixed
+            ? shareVal.toFixed(1)
+            : Number(shareVal).toFixed(1);
+
+          const tdSignal = document.createElement("td");
+          tdSignal.textContent = mapping.label;
+
+          const tdDesc = document.createElement("td");
+          tdDesc.textContent = mapping.description;
+
+          tr.appendChild(tdTime);
+          tr.appendChild(tdShare);
+          tr.appendChild(tdSignal);
+          tr.appendChild(tdDesc);
+          tbody.appendChild(tr);
+          rowsAdded++;
+        }
+
+        if (rowsAdded === 0) {
+          statusEl.textContent = "Data unavailable now, check again later.";
+        } else {
+          statusEl.textContent = "Showing today’s values between 08:00 and 23:00 CET.";
+        }
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Data unavailable now, check again later.";
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
+

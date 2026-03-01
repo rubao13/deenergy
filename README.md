@@ -17,7 +17,19 @@ The page:
 
 ## How to use
 
-1. Clone this repository:
+1. Clone and open the project:
    ```bash
-   git clone https://github.com/<your-user>/<your-repo>.git
+   git clone https://github.com/rubao13/deenergy.git
    cd <your-repo>
+   # macOS / Linux
+    open de_renewable_signal.html
+
+   # Windows
+    start de_renewable_signal.html
+´´´
+2. The page will load and display the current renewable share and signal for Germany (80339).
+
+### To do
+
+Dynamic ZIP code
+
